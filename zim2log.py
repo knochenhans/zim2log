@@ -1,8 +1,11 @@
+import argparse
+import os
 import re
+
 from bs4 import BeautifulSoup, Tag
 
 
-def html_to_md(html_content: str):
+def html_to_md(html_content: str, notebook: str):
     html_content = html_content.replace("<i>", "*")
     html_content = html_content.replace("</i>", "*")
     html_content = html_content.replace("<b>", "**")
@@ -17,7 +20,8 @@ def html_to_md(html_content: str):
     def convert_element(element, list_level=0):
         md = ""
         if element.name == "p":
-            md += f"{element.get_text()}\n\n"
+            for child in element.children:
+                md += convert_element(child, list_level)
         elif element.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
             md += f"{'#' * int(element.name[1])} {element.get_text()}\n\n"
         elif element.name == "ul":
@@ -34,6 +38,15 @@ def html_to_md(html_content: str):
             md += "\n"
         elif element.name == "a":
             md += f"[{element['title']}]({element['href']})"
+        elif element.name == "img":
+            nonlocal notebook
+            src = os.path.normpath(os.path.join(notebook, element["src"]))
+
+            title = ""
+            if element.has_attr("title"):
+                title = element["title"]
+
+            md += f"![{title}]({src})"
         elif element.name == "li":
             for child in element.children:
                 md += convert_element(child, list_level)
@@ -55,9 +68,30 @@ def html_to_md(html_content: str):
 
     return md_content
 
+
 if __name__ == "__main__":
-    with open("/tmp/logseq/Akustik.html", "r", encoding="utf-8") as file:
+    parser = argparse.ArgumentParser(
+        description="Convert Zim Desktop Wiki HTML export files into Logseq md."
+    )
+
+    parser.add_argument("input_file", type=str, help="Path to the input file")
+    parser.add_argument("--output", "-o", type=str, help="Path to the output file")
+    parser.add_argument(
+        "--notebook",
+        "-n",
+        type=str,
+        help="Path to the original notebook (to interpret local images files paths",
+    )
+
+    args = parser.parse_args()
+
+    filename = args.input_file
+    with open(filename, "r", encoding="utf-8") as file:
         html_content = file.read()
 
-    markdown_content = html_to_md(html_content)
-    print(markdown_content)
+    filename_out, _ = os.path.splitext(filename)
+
+    markdown_content = html_to_md(html_content, args.notebook)
+
+    with open(filename_out + ".md", "w") as file:
+        file.write(markdown_content)
