@@ -15,6 +15,8 @@ def html_to_md(html_content: str, notebook: str):
     soup = BeautifulSoup(html_content, "html.parser")
 
     soup.find(class_="header").decompose()
+    for anchor in soup.find_all(class_="h_anchor"):
+        anchor.decompose()
 
     # Define a function to recursively convert HTML elements to Markdown
     def convert_element(element, list_level=0):
