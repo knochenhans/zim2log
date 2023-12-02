@@ -21,43 +21,60 @@ def html_to_md(html_content: str, notebook: str):
     # Define a function to recursively convert HTML elements to Markdown
     def convert_element(element, list_level=0):
         md = ""
-        if element.name == "p":
-            for child in element.children:
-                md += convert_element(child, list_level)
-        elif element.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
-            md += f"{'#' * int(element.name[1])} {element.get_text()}\n\n"
-        elif element.name == "ul":
-            list_level += 1
-            list_str = list_level * "\t"
-            for li in element.find_all("li", recursive=False):
-                md += f"{list_str}- " + convert_element(li, list_level)
-            md += "\n"
-        elif element.name == "ol":
-            list_level += 1
-            list_str = list_level * "\t"
-            for i, li in enumerate(element.find_all("li", recursive=False), start=1):
-                md += convert_element(li, list_level)
-            md += "\n"
-        elif element.name == "a":
-            md += f"[{element['title']}]({element['href']})"
-        elif element.name == "img":
-            nonlocal notebook
-            src = os.path.normpath(os.path.join(notebook, element["src"]))
-
-            title = ""
-            if element.has_attr("title"):
-                title = element["title"]
-
-            md += f"![{title}]({src})"
-        elif element.name == "li":
-            for child in element.children:
-                md += convert_element(child, list_level)
-        else:
-            if isinstance(element, Tag):
+        match element.name:
+            case "p":
                 for child in element.children:
                     md += convert_element(child, list_level)
-            else:
-                md += element.get_text() + "\n"
+
+            case "h1" | "h2" | "h3" | "h4" | "h5" | "h6":
+                md += f"{'#' * int(element.name[1])} {element.get_text()}\n\n"
+
+            case "ul":
+                list_level += 1
+                list_str = list_level * "\t"
+                for li in element.find_all("li", recursive=False):
+                    md += f"{list_str}- " + convert_element(li, list_level)
+                md += "\n"
+
+            case "ol":
+                list_level += 1
+                list_str = list_level * "\t"
+                for i, li in enumerate(
+                    element.find_all("li", recursive=False), start=1
+                ):
+                    md += convert_element(li, list_level)
+
+                md += "\n"
+            case "a":
+                title = ""
+                if element.has_attr("title"):
+                    title = element["title"]
+
+                href = ""
+                if element.has_attr("href"):
+                    href = element["href"]
+                md += f"[{title}]({href})"
+
+            case "img":
+                nonlocal notebook
+                src = os.path.normpath(os.path.join(notebook, element["src"]))
+
+                title = ""
+                if element.has_attr("title"):
+                    title = element["title"]
+
+                md += f"![{title}]({src})"
+
+            case "li":
+                for child in element.children:
+                    md += convert_element(child, list_level)
+
+            case _:
+                if isinstance(element, Tag):
+                    for child in element.children:
+                        md += convert_element(child, list_level)
+                else:
+                    md += element.get_text() + "\n"
 
         return md
 
